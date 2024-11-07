@@ -23,7 +23,8 @@ DB_ADDRESS: str = config.DB_ADDRESS
 DB_NAME: str = config.DB_NAME
 
 engine = create_engine(
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}", echo=True,
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}",
+    echo=True,
 )
 
 
@@ -85,7 +86,8 @@ class Categories(Base):
     category_name: Mapped[str] = mapped_column(String(20), unique=True)
 
     products: Mapped["Products"] = relationship(
-        "Products", back_populates="product_category",
+        "Products",
+        back_populates="product_category",
     )  # Исправлено на 'Products'
 
     def __str__(self):
@@ -104,7 +106,8 @@ class Products(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
 
     product_category: Mapped[Categories] = relationship(
-        "Categories", back_populates="products",
+        "Categories",
+        back_populates="products",
     )
 
     def __str__(self):

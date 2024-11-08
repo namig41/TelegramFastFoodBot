@@ -81,7 +81,6 @@ class Finally_carts(Base):
 class Categories(Base):
 
     __tablename__ = "categories"
-
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
     category_name: Mapped[str] = mapped_column(String(20), unique=True)
 
@@ -97,7 +96,6 @@ class Categories(Base):
 class Products(Base):
 
     __tablename__ = "products"
-
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
     product_name: Mapped[str] = mapped_column(String(20), unique=True)
     description: Mapped[str]
@@ -121,24 +119,48 @@ def main():
     categories = ("Лаваши", "Донары", "Хот-Доги", "Десерты", "Соусы")
 
     products = (
-        (1, "Мини лаваш", 20000, "Мясо, тесто, помидоры", "media/lavash/lavash_1.jpg"),
         (
             1,
-            "Мини Говяжий",
+            "Мини лаваш",
+            20000,
+            "Мясо, тесто, помидоры",
+            "app/resources/media/lavash/lavash_1.jpg",
+        ),
+        (
+            1,
+            "Мини говяжий",
             24000,
             "Мясо, тесто, помидоры",
-            "media/lavash/lavash_2.jpg",
+            "app/resources/media/lavash/lavash_2.jpg",
         ),
         (
             1,
             "Мини с сыром",
             24000,
             "Мясо, тесто, помидоры",
-            "media/lavash/lavash_3.jpg",
+            "app/resources/media/lavash/lavash_3.jpg",
         ),
-        (2, "Гамбургер", 18000, "Мясо, тесто, помидоры", "media/lavash/donar_1.jpg"),
-        (2, "Дамбургер", 22000, "Мясо, тесто, помидоры", "media/lavash/donar_2.jpg"),
-        (2, "Чисбургер", 19000, "Мясо, тесто, помидоры", "media/lavash/donar_3.jpg"),
+        (
+            2,
+            "Гамбургер",
+            18000,
+            "Мясо, тесто, помидоры",
+            "app/resources/media/donar/donar_1.jpg",
+        ),
+        (
+            2,
+            "Дамбургер",
+            22000,
+            "Мясо, тесто, помидоры",
+            "app/resources/media/donar/donar_2.jpg",
+        ),
+        (
+            2,
+            "Чисбургер",
+            19000,
+            "Мясо, тесто, помидоры",
+            "app/resources/media/donar/donar_3.jpg",
+        ),
     )
 
     with Session(engine) as session:

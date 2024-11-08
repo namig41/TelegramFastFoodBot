@@ -7,11 +7,15 @@ from aiogram import (
     F,
     types,
 )
-from aiogram.filters.command import Command
+from aiogram.client.default import DefaultBotProperties
+from aiogram.filters import CommandStart
 from infrastructure.database.utils import (
     db_create_user_cart,
     db_get_product_by_id,
+    db_get_user_cart,
+    db_get_user_cart_by_chat_id,
     db_register_user,
+    db_update_to_cart,
     db_update_user,
 )
 
@@ -29,13 +33,13 @@ from settings.config import config
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 # Объект бота
-bot = Bot(token=config.TELEGRAM_TOKEN)
+bot = Bot(token=config.TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 # Диспетчер
 dp = Dispatcher()
 
 
 # Хэндлер на команду /start
-@dp.message(Command("start"))
+@dp.message(CommandStart())
 async def command_start(message: types.Message):
     await message.answer(f"Здравствуйте, {message.from_user.full_name}!")
 
@@ -48,7 +52,7 @@ async def start_register_user(message: types.Message):
 
     if db_register_user(full_name, chat_id):
         await message.answer(text="Авторизация прошла успешно")
-        # TODO: Показать меню
+        await show_main_menu(message)
     else:
         await message.answer(
             text="Для связи с Вами нам нужен Ваш контактный номер",
@@ -70,10 +74,22 @@ async def update_user_info_finish_register(message: types.Message):
 
 @dp.message(F.text == "Сделать заказ")
 async def make_order(message: types.Message):
+    message.chat.id
+
+    # await bot.send_message(chat_id=chat_id, text="Погнали", reply_markup='')
+    await message.answer(
+        text="Выберите категорию", reply_markup=generate_category_menu(),
+    )
+
+
+@dp.message(F.text == "Корзина")
+async def show_carts(message: types.Message):
     chat_id = message.chat.id
 
-    await bot.send_message(chat_id=chat_id, text="Погнали", reply_markup="")
-    await message.answer(text="Выберите катеогнию", reply_markup="")
+    db_get_user_cart_by_chat_id(chat_id)
+
+    # await bot.send_message(chat_id=chat_id,
+    #                     text='')
 
 
 async def show_main_menu(message: types.Message):
@@ -90,13 +106,10 @@ async def return_to_main_menu(message: types.Message):
 
 @dp.callback_query(F.data.regexp(r"category_[1-9]"))
 async def show_product_button(call: types.CallbackQuery):
-
     chat_id = call.message.chat.id
     message_id = call.message.message_id
-
     category_id = int(call.data.split("_")[-1])
-
-    await bot.edit_messaget_text(
+    await bot.edit_message_text(
         text="Выберите продукт",
         chat_id=chat_id,
         message_id=message_id,
@@ -109,7 +122,7 @@ async def return_to_category_button(call: types.CallbackQuery):
     chat_id = call.message.chat.id
     message_id = call.message.message_id
 
-    await bot.edit(
+    await bot.edit_message_text(
         chat_id=chat_id,
         message_id=message_id,
         text="Выберите категорию",
@@ -121,10 +134,27 @@ async def return_to_category_button(call: types.CallbackQuery):
 async def show_product_detail(call: types.CallbackQuery):
     chat_id = call.message.chat.id
     message_id = call.message.message_id
-    product_id = int(call.data.split("-")[-1])
-    db_get_product_by_id(product_id)
+    product_id = int(call.data.split("_")[-1])
+    product = db_get_product_by_id(product_id)
 
     await bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+    if user_cart_id := db_get_user_cart(chat_id):
+        db_update_to_cart(price=product.price, cart_id=user_cart_id)
+
+        text = f"<b> {product.product_name} </b>\n\n"
+        text += f"<b> Ингредиенты: </b> {product.description}\n"
+        text += f"<b> Цена: </b> {product.price} сумм"
+
+        await bot.send_photo(
+            chat_id=chat_id, photo=types.FSInputFile(path=product.image), caption=text,
+        )
+    else:
+        await bot.send_message(
+            chat_id=chat_id,
+            text="К сожалению у нас нет вашего контакта",
+            reply_markup=share_phone_button(),
+        )
 
 
 # Запуск процесса поллинга новых апдейтов

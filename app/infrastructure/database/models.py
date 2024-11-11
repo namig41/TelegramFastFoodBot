@@ -24,7 +24,6 @@ DB_NAME: str = config.DB_NAME
 
 engine = create_engine(
     f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_ADDRESS}/{DB_NAME}",
-    echo=True,
 )
 
 
@@ -51,7 +50,7 @@ class Carts(Base):
     __tablename__ = "carts"
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
     total_price: Mapped[int] = mapped_column(DECIMAL(12, 2), default=0)
-    total_products: Mapped[str] = mapped_column(default=0)
+    total_products: Mapped[int] = mapped_column(default=0)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
 
     user_cart: Mapped[Users] = relationship(back_populates="carts")
@@ -113,6 +112,7 @@ class Products(Base):
 
 
 def main():
+    Base.metadata.drop_all(engine)
 
     Base.metadata.create_all(engine)
 

@@ -63,7 +63,7 @@ def db_get_product_by_id(product_id: int):
 
 
 def db_get_user_cart(chat_id: int):
-    query = select(Carts.id).join(Users).where(Users.telegram == chat_id)
+    query = select(Carts).join(Users).where(Users.telegram == chat_id)
     return db_session.scalar(query)
 
 
@@ -81,3 +81,8 @@ def db_update_to_cart(price: DECIMAL, cart_id: int, quantity=1) -> None:
 def db_get_user_cart_by_chat_id(chat_id: int):
     query = select(Carts.id).join(Users).where(Users.telegram == chat_id)
     return db_session.scalars(query)
+
+
+def db_get_product_by_name(product_name: str) -> Products:
+    query = select(Products).where(Products.product_name == product_name)
+    return db_session.scalar(query)

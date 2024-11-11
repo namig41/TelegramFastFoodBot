@@ -16,6 +16,7 @@ from infrastructure.database.utils import (
     db_get_product_by_name,
     db_get_user_cart,
     db_get_user_cart_by_chat_id,
+    db_ins_or_upd_finally_cart,
     db_register_user,
     db_update_to_cart,
     db_update_user,
@@ -83,11 +84,13 @@ async def make_order(message: types.Message):
     chat_id = message.chat.id
 
     await bot.send_message(
-        chat_id=chat_id, text="Погнали", reply_markup=back_to_main_menu(),
+        chat_id=chat_id,
+        text="Погнали",
+        reply_markup=back_to_main_menu(),
     )
     await message.answer(
         text="Выберите категорию",
-        reply_markup=generate_category_menu(),
+        reply_markup=generate_category_menu(chat_id),
     )
 
 
@@ -97,8 +100,8 @@ async def show_carts(message: types.Message):
     db_get_user_cart_by_chat_id(chat_id)
 
 
+@dp.message(F.text == "Главное меню")
 async def show_main_menu(message: types.Message):
-
     await message.answer(text="Выберите направление", reply_markup=generate_main_menu())
 
 
@@ -131,7 +134,7 @@ async def return_to_category_button(call: types.CallbackQuery):
         chat_id=chat_id,
         message_id=message_id,
         text="Выберите категорию",
-        reply_markup=generate_category_menu(),
+        reply_markup=generate_category_menu(chat_id),
     )
 
 
@@ -148,7 +151,9 @@ async def show_product_detail(call: types.CallbackQuery):
         db_update_to_cart(price=product.price, cart_id=user_cart.id)
 
         text = text_for_caption(
-            product.product_name, product.description, product.price,
+            product.product_name,
+            product.description,
+            product.price,
         )
 
         await bot.send_message(
@@ -209,7 +214,9 @@ async def constructor_change(call: types.CallbackQuery):
                 )
 
     text = text_for_caption(
-        name=product_name, description=product.description, price=product_price,
+        name=product_name,
+        description=product.description,
+        price=product_price,
     )
 
     try:
@@ -217,12 +224,37 @@ async def constructor_change(call: types.CallbackQuery):
             chat_id=chat_id,
             message_id=message_id,
             media=types.InputMediaPhoto(
-                media=types.FSInputFile(path=product.image), caption=text,
+                media=types.FSInputFile(path=product.image),
+                caption=text,
             ),
             reply_markup=generate_constructor_button(user_cart.total_products),
         )
     except TelegramBadRequest:
         pass
+
+
+@dp.callback_query(F.data == "put into cart")
+async def put_into_cart(call: types.CallbackQuery):
+    chat_id = call.from_user.id
+    product_name = call.message.caption.split("\n")[0]
+    cart = db_get_user_cart(chat_id)
+
+    await bot.delete_message(
+        chat_id=chat_id,
+        message_id=call.message.message_id,
+    )
+
+    if db_ins_or_upd_finally_cart(
+        cart_id=cart.id,
+        product_name=product_name,
+        total_products=cart.total_products,
+        total_price=cart.total_price,
+    ):
+        await bot.send_message(chat_id=chat_id, text="Продукт успешно добавлен")
+    else:
+        await bot.send_message(chat_id=chat_id, text="Количество успешно изменено")
+
+    await return_to_category_menu(call.message)
 
 
 # Запуск процесса поллинга новых апдейтов

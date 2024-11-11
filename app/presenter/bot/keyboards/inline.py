@@ -5,15 +5,20 @@ from aiogram.utils.keyboard import (
 )
 from infrastructure.database.utils import (
     db_get_all_category,
+    db_get_finally_price,
     db_get_product,
 )
 
 
-def generate_category_menu() -> InlineKeyboardMarkup:
+def generate_category_menu(chat_id: int) -> InlineKeyboardMarkup:
     categories = db_get_all_category()
+    total_price = db_get_finally_price(chat_id)
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="Ваша корзина", callback_data="Ваша корзинка")
+    builder.button(
+        text=f"Ваша корзина ({total_price if total_price else 0} сум)",
+        callback_data="Ваша корзинка",
+    )
     [
         builder.button(
             text=category.category_name,

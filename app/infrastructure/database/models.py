@@ -86,7 +86,7 @@ class Categories(Base):
     products: Mapped["Products"] = relationship(
         "Products",
         back_populates="product_category",
-    )  # Исправлено на 'Products'
+    )  # Исправлено на "Products"
 
     def __str__(self):
         return self.category_name

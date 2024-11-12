@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from infrastructure.database.models import (
     Carts,
     Categories,
@@ -8,6 +10,7 @@ from infrastructure.database.models import (
 )
 from sqlalchemy import (
     DECIMAL,
+    delete,
     select,
     update,
 )
@@ -126,3 +129,45 @@ def db_get_finally_price(chat_id: int) -> DECIMAL:
         .where(Users.telegram == chat_id)
     )
     return db_session.execute(query).fetchone()[0]
+
+
+def db_get_finally_cart_products(chat_id: int) -> Iterable:
+    query = (
+        select(
+            Finally_carts.product_name,
+            Finally_carts.quantity,
+            Finally_carts.final_price,
+            Finally_carts.cart_id,
+        )
+        .join(Carts)
+        .join(Users)
+        .where(Users.telegram == chat_id)
+    )
+    return db_session.execute(query).fetchall()
+
+
+def db_get_product_for_delete(chat_id: int) -> Iterable:
+    query = (
+        select(Finally_carts.id, Finally_carts.product_name)
+        .join(Carts)
+        .join(Users)
+        .where(Users.telegram == chat_id)
+    )
+    return db_session.execute(query).fetchall()
+
+
+def db_delete_product(finally_id: int) -> None:
+    query = delete(Finally_carts).where(Finally_carts.id == finally_id)
+    db_session.execute(query)
+    db_session.commit()
+
+
+def db_get_user_info(chat_id: int) -> Users:
+    query = select(Users).where(Users.telegram == chat_id)
+    return db_session.scalar(query)
+
+
+def db_clear_finally_cart(cart_id: int) -> None:
+    query = delete(Finally_carts).where(Finally_carts == cart_id)
+    db_session.execte(query)
+    db_session.commit()

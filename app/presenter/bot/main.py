@@ -11,11 +11,13 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from infrastructure.database.utils import (
+    db_clear_finally_cart,
     db_create_user_cart,
+    db_delete_product,
     db_get_product_by_id,
     db_get_product_by_name,
     db_get_user_cart,
-    db_get_user_cart_by_chat_id,
+    db_get_user_info,
     db_ins_or_upd_finally_cart,
     db_register_user,
     db_update_to_cart,
@@ -25,6 +27,7 @@ from infrastructure.database.utils import (
 from presenter.bot.keyboards.inline import (
     generate_category_menu,
     generate_constructor_button,
+    generate_delete_product,
     show_product_by_category,
 )
 from presenter.bot.keyboards.reply import (
@@ -33,7 +36,10 @@ from presenter.bot.keyboards.reply import (
     generate_main_menu,
     share_phone_button,
 )
-from presenter.bot.utils import text_for_caption
+from presenter.bot.utils import (
+    counting_products_from_cart,
+    text_for_caption,
+)
 from settings.config import config
 
 
@@ -96,8 +102,18 @@ async def make_order(message: types.Message):
 
 @dp.message(F.text == "Корзина")
 async def show_carts(message: types.Message):
+    message_id = message.message_id
     chat_id = message.chat.id
-    db_get_user_cart_by_chat_id(chat_id)
+    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    context = counting_products_from_cart(chat_id, "Ваша корзина")
+    if context:
+        count, text, *_ = context
+        await bot.send_message(
+            chat_id=chat_id, text=text, reply_markup=generate_delete_product(chat_id),
+        )
+    else:
+        await bot.send_message(chat_id=chat_id, text="Ваша корзина пуста")
+        await make_order(message)
 
 
 @dp.message(F.text == "Главное меню")
@@ -107,7 +123,12 @@ async def show_main_menu(message: types.Message):
 
 @dp.message(F.text.regexp(r"^[а-я]+ [а-я]{4}"))
 async def return_to_main_menu(message: types.Message):
-    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id - 1)
+    try:
+        await bot.delete_message(
+            chat_id=message.chat.id, message_id=message.message_id - 1,
+        )
+    except TelegramBadRequest:
+        pass
 
     await show_main_menu(message)
 
@@ -178,7 +199,12 @@ async def show_product_detail(call: types.CallbackQuery):
 
 @dp.message(F.text == "Назад")
 async def return_to_category_menu(message: types.Message):
-    await bot.delete_message(message.chat.id, message.message_id - 1)
+    try:
+        await bot.delete_message(
+            chat_id=message.chat.id, message_id=message.message_id - 1,
+        )
+    except TelegramBadRequest:
+        pass
     await make_order(message)
 
 
@@ -255,6 +281,67 @@ async def put_into_cart(call: types.CallbackQuery):
         await bot.send_message(chat_id=chat_id, text="Количество успешно изменено")
 
     await return_to_category_menu(call.message)
+
+
+@dp.callback_query(F.data == "Ваша корзина")
+async def show_finally_cart(call: types.CallbackQuery):
+    message_id = call.message.message_id
+    chat_id = call.from_user.id
+    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    context = counting_products_from_cart(chat_id, "Ваша корзина")
+    if context:
+        count, text, *_ = context
+        await bot.send_message(
+            chat_id=chat_id, text=text, reply_markup=generate_delete_product(chat_id),
+        )
+    else:
+        await bot.send_message(chat_id=chat_id, text="Ваша корзина пуста")
+        await make_order(call.message)
+
+
+@dp.callback_query(F.data.regexp(r"delete_\d+"))
+async def delete_cart_product(call: types.CallbackQuery):
+    call.from_user.id
+
+    finally_id = int(call.data.split("_")[-1])
+    db_delete_product(finally_id)
+    await bot.answer_callback_query(callback_query_id=call.id, text="Продукт удален!")
+    await show_finally_cart(call)
+
+
+@dp.callback_query(F.data == "order_pay")
+async def create_order(call: types.CallbackQuery):
+    chat_id = call.from_user.id
+    message_id = call.message.message_id
+    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+    count, text, total_price, cart_id = counting_products_from_cart(
+        chat_id=chat_id, user_text="Итоговый список для оплаты",
+    )
+    text += "\nДоставка по городу 1000 сум"
+
+    await bot.send_invoice(
+        chat_id=call.from_user.id,
+        title="Ваш заказ",
+        description=text,
+        payload="bot-defined invoice payload",
+        provider_token=config.PAYMENT_TOKEN,
+        currency="RUB",
+        prices=[
+            types.LabeledPrice(label="Общая стоимость", amount=int(total_price)),
+            types.LabeledPrice(label="Доставка", amount=int(total_price)),
+        ],
+    )
+
+    await bot.send_message(chat_id=chat_id, text="Заказ оплачен")
+    await sending_report_to_manager(chat_id, text)
+    db_clear_finally_cart(chat_id)
+
+
+async def sending_report_to_manager(chat_id: int, text: str):
+    user = db_get_user_info(chat_id)
+    text += f"\n\n<b>Имя заказчика: {user.name}\nКонтакт: {user.phone}</b>\n\n"
+    await bot.send_message(chat_id=config.MANAGER_ID, text=text)
 
 
 # Запуск процесса поллинга новых апдейтов

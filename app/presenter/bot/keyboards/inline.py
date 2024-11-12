@@ -7,6 +7,7 @@ from infrastructure.database.utils import (
     db_get_all_category,
     db_get_finally_price,
     db_get_product,
+    db_get_product_for_delete,
 )
 
 
@@ -17,7 +18,7 @@ def generate_category_menu(chat_id: int) -> InlineKeyboardMarkup:
 
     builder.button(
         text=f"Ваша корзина ({total_price if total_price else 0} сум)",
-        callback_data="Ваша корзинка",
+        callback_data="Ваша корзина",
     )
     [
         builder.button(
@@ -55,4 +56,17 @@ def generate_constructor_button(quantity: int = 1) -> InlineKeyboardMarkup:
 
     builder.adjust(3, 1)
 
+    return builder.as_markup()
+
+
+def generate_delete_product(chat_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    cart_products = db_get_product_for_delete(chat_id)
+    builder.button(text="Оформить заказ", callback_data="order_pay")
+
+    for finally_cart_id, product_name in cart_products:
+        builder.button(
+            text=f"{product_name}", callback_data=f"delete_{finally_cart_id}",
+        )
+    builder.adjust(1)
     return builder.as_markup()

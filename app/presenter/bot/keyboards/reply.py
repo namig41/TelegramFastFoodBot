@@ -22,7 +22,7 @@ def generate_main_menu() -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True)
 
 
-def back_to_main_menu() -> ReplyKeyboardBuilder:
+def back_to_main_menu() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
 
     builder.button(text="Главное меню")

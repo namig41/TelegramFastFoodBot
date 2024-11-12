@@ -42,15 +42,17 @@ def db_update_user(chat_id: int, phone: str):
 
 def db_create_user_cart(chat_id: int) -> bool:
     try:
-        subquery = db_session.scalar(select(Users).where(Users.telegram == chat_id))
-        query = Carts(user_id=subquery.id)
+        user: Users | None = db_session.scalar(select(Users).where(Users.telegram == chat_id))
+        query = Carts(user_id=user.id)
         db_session.add(query)
         db_session.commit()
         return True
     except IntegrityError:
         db_session.rollback()
+        return False
     except AttributeError:
         db_session.rollback()
+        return False
 
 
 def db_get_all_category():
@@ -88,7 +90,7 @@ def db_get_user_cart_by_chat_id(chat_id: int):
     return db_session.scalars(query)
 
 
-def db_get_product_by_name(product_name: str) -> Products:
+def db_get_product_by_name(product_name: str) -> Products | None:
     query = select(Products).where(Products.product_name == product_name)
     return db_session.scalar(query)
 
@@ -121,7 +123,7 @@ def db_ins_or_upd_finally_cart(cart_id, product_name, total_products, total_pric
         return False
 
 
-def db_get_finally_price(chat_id: int) -> DECIMAL:
+def db_get_finally_price(chat_id: int) -> DECIMAL | None:
     query = (
         select(sum(Finally_carts.final_price))
         .join(Carts)
@@ -162,12 +164,12 @@ def db_delete_product(finally_id: int) -> None:
     db_session.commit()
 
 
-def db_get_user_info(chat_id: int) -> Users:
+def db_get_user_info(chat_id: int) -> Users | None:
     query = select(Users).where(Users.telegram == chat_id)
     return db_session.scalar(query)
 
 
 def db_clear_finally_cart(cart_id: int) -> None:
-    query = delete(Finally_carts).where(Finally_carts == cart_id)
-    db_session.execte(query)
+    query = delete(Finally_carts).where(Finally_carts.cart_id == cart_id)
+    db_session.execute(query)
     db_session.commit()
